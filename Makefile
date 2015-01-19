@@ -1,6 +1,8 @@
 # evaluate against perfect?
 
-all: compare.txt
+all: ref-errors.details.txt corr-errors.details.txt
+
+display: compare.txt refcompare.txt 
 
 ecoli-subset.fq:
 	sample-reads-randomly.py -R 1 -N 10000 ecoli-mapped.fq.gz.keep.gz -o ecoli-subset.fq

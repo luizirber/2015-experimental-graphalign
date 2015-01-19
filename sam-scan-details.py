@@ -56,6 +56,7 @@ def main():
         out2 = []
         out3 = []
         out4 = []
+        out5 = []
         
         for pos, (a, b) in enumerate(zip(ref, seq)):
             if a != b:
@@ -74,18 +75,35 @@ def main():
             else:
                 out3.append(' ')
 
-            kmer = seq[pos:pos+kh.ksize()]
+            kmer = ref[pos:pos+kh.ksize()]
             if len(kmer) == kh.ksize() and kh.get(kmer) < args.cutoff:
-                out4.append('<')
+                out4.append('|')
             else:
                 out4.append(' ')
+
+            kmer = seq[pos:pos+kh.ksize()]
+            if len(kmer) == kh.ksize() and kh.get(kmer) < args.cutoff:
+                if kh.get(kmer) == 0:
+                    out5.append('0')
+                else:
+                    out5.append('<')
+            else:
+                out5.append(' ')
+
+        for start in range(0, len(out1), 60):
+            if start == 0:
+                print >>args.outfile, '%s positions %s:%s (len %d)' % \
+                      (readname, start, min(start+60, len(out1)), len(out1))
+            else:
+                print >>args.outfile, '%s:%s (len %d)' % \
+                      (start, min(start+60, len(out1)), len(out1))
                 
-        print >>args.outfile, readname
-        print >>args.outfile, ':', "".join(out1)
-        print >>args.outfile, ':', "".join(out2)
-        print >>args.outfile, ':', "".join(out3)
-        print >>args.outfile, ':', "".join(out4)
-        print >>args.outfile, ''
+            print >>args.outfile, '      ref:', "".join(out1[start:start+60])
+            print >>args.outfile, '     read:', "".join(out2[start:start+60])
+            print >>args.outfile, ' mismatch:', "".join(out3[start:start+60])
+            print >>args.outfile, ' ref kmer:', "".join(out4[start:start+60])
+            print >>args.outfile, 'read kmer:', "".join(out5[start:start+60])
+            print >>args.outfile, ''
         print >>args.outfile, '-------'
 
 
