@@ -3,6 +3,20 @@ import sys
 import argparse
 import screed
 
+
+def output_single(read):
+    name = read.name
+    sequence = read.sequence
+
+    accuracy = None
+    if hasattr(read, 'accuracy'):
+        accuracy = read.accuracy
+        assert len(sequence) == len(accuracy), (sequence, accuracy)
+        return "@%s\n%s\n+\n%s\n" % (name, sequence, accuracy)
+    else:
+        return ">%s\n%s\n" % (name, sequence)
+
+
 def read_pos_file(filename):
     for line in open(filename):
         line = line.strip()
@@ -20,6 +34,9 @@ def main():
     parser.add_argument('posfile')
     parser.add_argument('reads')
     parser.add_argument('--limitreads', default=None)
+    parser.add_argument('--save-erroneous-to', dest='save_err_to',
+                        help="output erroneous reads to this file",
+                        type=argparse.FileType('w'), default=None)
     args = parser.parse_args()
 
     print 'reading files...', args.posfile, args.reads
@@ -62,6 +79,13 @@ def main():
 
         n += 1
         m += len(v)
+
+    if args.save_err_to:
+        for nn, record in enumerate(screed.open(args.reads)):
+            if nn % 100000 == 0:
+                print >>sys.stderr, '... x save', nn
+            if posdict.get(record.name):
+                args.save_err_to.write(output_single(record))
 
     print 'XXX', all_reads, n_reads
 
