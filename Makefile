@@ -79,11 +79,19 @@ refcorr.k21.sam: refcorr.k21.fq
 refcorr.k21.sam.pos: refcorr.k21.sam
 	./sam-scan.py ecoliMG1655.fa refcorr.k21.sam -o refcorr.k21.sam.pos
 
+###
+
 ref-errors.sam: ref-errors.fq
 	bowtie2 -p 4 -x ecoli -U ref-errors.fq -S ref-errors.sam
 
 ref-errors.details.txt: ref-errors.sam
 	./sam-scan-details.py ecoliMG1655.fa ref-errors.sam ecoli-ref.dn.k21.kh -o ref-errors.details.txt -C 1
+
+corr-errors.sam: corr-errors.fq
+	bowtie2 -p 4 -x ecoli -U corr-errors.fq -S corr-errors.sam
+
+corr-errors.details.txt: corr-errors.sam
+	./sam-scan-details.py ecoliMG1655.fa corr-errors.sam ecoli.dn.k21.kh -o corr-errors.details.txt -C 5
 
 ###
 
@@ -94,7 +102,7 @@ compare.txt: original.sam.pos corr.k13.C17.sam.pos corr.k15.C15.sam.pos \
 	./summarize-pos-file.py corr.k13.C17.sam.pos corr.k13.C17.fq
 	./summarize-pos-file.py corr.k15.C15.sam.pos corr.k15.C15.fq
 	./summarize-pos-file.py corr.k17.C15.sam.pos corr.k17.C15.fq
-	./summarize-pos-file.py corr.k21.C5.sam.pos corr.k21.C5.fq
+	./summarize-pos-file.py corr.k21.C5.sam.pos corr.k21.C5.fq --save-erroneous-to=corr-errors.fq
 
 refcompare.txt: refcorr.k21.sam.pos
 	./summarize-pos-file.py original.sam.pos ecoli-subset.fq
