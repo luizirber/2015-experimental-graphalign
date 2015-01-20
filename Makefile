@@ -97,6 +97,17 @@ corr-errors.details.txt: corr-errors.sam
 
 ###
 
+test-set.sam: test-set.fq
+	bowtie2 -p 4 -x ecoli -U test-set.fq -S test-set.sam
+
+test-set.sam.pos: test-set.sam
+	./sam-scan.py ecoliMG1655.fa test-set.sam -o test-set.sam.pos
+
+test-set-report: test-set.sam.pos
+	./summarize-pos-file.py test-set.sam.pos test-set.fq
+
+###
+
 
 compare.txt: original.sam.pos corr.k13.C17.sam.pos corr.k15.C15.sam.pos \
 	corr.k17.C15.sam.pos corr.k21.C5.sam.pos
