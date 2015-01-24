@@ -1,11 +1,27 @@
 # evaluate against perfect?
+QUAKE=/Users/t/Documents/papers/2014-streaming/Quake
 
 all: ref-errors.details.txt corr-errors.details.txt
 
 display: compare.txt refcompare.txt 
 
-ecoli-subset.fq:
-	sample-reads-randomly.py -R 1 -N 10000 ecoli-mapped.fq.gz.keep.gz -o ecoli-subset.fq
+ecoli-subset.fq: ecoli-mapped.fq.gz
+	sample-reads-randomly.py -R 1 -N 10000 ecoli-mapped.fq.gz -o ecoli-subset.fq
+
+ecoli-subset.100k.fq: ecoli-mapped.fq.gz
+	sample-reads-randomly.py -R 2 -N 100000 ecoli-mapped.fq.gz -o ecoli-subset.100k.fq
+
+ecoli-subset.100k.cor.fq.gz: ecoli-subset.100k.fq
+	echo ecoli-subset.100k.fq > ecoli_quake_list.txt
+	#ln -fs /usr/local/bin/jellyfish .
+	#cat ecoli-mapped.fq.gz.keep | $(QUAKE)/bin/count-qmers -q 33 -k 14 > ecoli_dn_counts.out
+	#$(QUAKE)/bin/cov_model.py ecoli_dn_counts.out > ecoli_dn_counts.cov
+	$(QUAKE)/bin/correct -f ecoli_quake_list.txt -p 4 -k 14 -q 33 -c 7.94 -z -m ecoli_dn_counts.out
+	#mv ecoli-mapped.cor.fq.gz ecoli-mapped.dn.cor.fq.gz
+
+ecoli-subset.100k.quake.fq: ecoli-subset.100k.cor.fq.gz ecoli-subset.100k.fq
+	extract-original-reads-from-quake-cor.py ecoli-subset.100k.fq ecoli-subset.100k.cor.fq.gz ecoli-subset.100k.quake.fq
+	
 
 original.sam: ecoli-subset.fq
 	cat ecoli-subset.fq | bowtie2 -p 4 -x ecoli -U - -S original.sam
@@ -58,7 +74,13 @@ corr.k17.C15.sam.pos: corr.k17.C15.sam
 ###
 
 ecoli.dn.k21.kh: ecoli-mapped.fq.gz.keep.gz
-	load-into-counting.py -k 21 -x 4e7 ecoli.dn.k21.kh ecoli-mapped.fq.gz.keep.gz
+	load-into-counting.py -k 21 -x 8e7 ecoli.dn.k21.kh ecoli-mapped.fq.gz.keep.gz
+
+ecoli.dn.k23.kh: ecoli-mapped.fq.gz.keep.gz
+	load-into-counting.py -k 23 -x 8e7 ecoli.dn.k23.kh ecoli-mapped.fq.gz.keep.gz
+
+ecoli.dn.k31.kh: ecoli-mapped.fq.gz.keep.gz
+	load-into-counting.py -k 31 -x 8e7 ecoli.dn.k31.kh ecoli-mapped.fq.gz.keep.gz
 
 corr.k21.C5.fq: ecoli.dn.k21.kh ecoli-subset.fq
 	../sandbox/error-correct-pass2.py ecoli.dn.k21.kh ecoli-subset.fq -o corr.k21.C5.fq --trusted-cov 5
@@ -124,3 +146,19 @@ refcompare.txt: refcorr.k21.sam.pos
 ecoli.1.bt2: ecoliMG1655.fa
 	bowtie2-build ecoliMG1655.fa ecoli
 	samtools faidx ecoliMG1655.fa
+
+#####
+
+NULLGRAPH=~/dev/nullgraph
+
+simple-haplo.fa:
+	$(NULLGRAPH)/make-random-genome.py -l 240 -s 1 > simple-haplo.fa
+
+simple-reads.fa: simple-haplo.fa
+	$(NULLGRAPH)/make-biased-reads.py -C 100 -S 1 simple.fa > simple-reads.fa
+
+simple-reads.ct: simple-reads.fa
+	load-into-counting.py -k 21 -x 1.1e6 simple-reads.ct simple-reads.fa
+
+simple-reads.dn.ct: simple-reads.fa
+	normalize-by-median.py -k 20 -C 20 simple-reads.fa -s simple-reads.dn.ct -x 1.1e6
