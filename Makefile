@@ -151,14 +151,21 @@ ecoli.1.bt2: ecoliMG1655.fa
 
 NULLGRAPH=~/dev/nullgraph
 
-simple-haplo.fa:
-	$(NULLGRAPH)/make-random-genome.py -l 240 -s 1 > simple-haplo.fa
+simple-haplo-reads.fa: simple-haplo.fa
+	$(NULLGRAPH)/make-reads.py -C 100 -S 1 simple-haplo.fa > simple-haplo-reads.fa
 
-simple-reads.fa: simple-haplo.fa
-	$(NULLGRAPH)/make-biased-reads.py -C 100 -S 1 simple.fa > simple-reads.fa
+simple-reads.fa: simple.fa
+	$(NULLGRAPH)/make-biased-reads.py -S 1 -C 100 simple.fa > simple-reads.fa
 
 simple-reads.ct: simple-reads.fa
-	load-into-counting.py -k 21 -x 1.1e6 simple-reads.ct simple-reads.fa
+	load-into-counting.py -k 20 -x 1.1e6 simple-reads.ct simple-reads.fa
 
-simple-reads.dn.ct: simple-reads.fa
-	normalize-by-median.py -k 20 -C 20 simple-reads.fa -s simple-reads.dn.ct -x 1.1e6
+simple-haplo-reads.dn.ct: simple-haplo-reads.fa
+	normalize-by-median.py -k 20 -C 20 simple-haplo-reads.fa -s simple-haplo-reads.dn.ct -x 1.1e6
+
+ex1: simple-haplo-reads.dn.ct
+	find-variant-by-align.py simple-haplo-reads.dn.ct simple-alt.fa
+
+ex2: simple-reads.ct
+	count-by-align.py simple-reads.ct simple-haplo.fa > simple-haplo.counts
+	count-by-align.py simple-reads.ct simple-alt.fa > simple-alt.counts

@@ -23,8 +23,8 @@ def main():
 
         assert not truncated
 
-        g = graph_alignment.replace('-', '')
-        r = read_alignment.replace('-', '')
+        g = graph_alignment #.replace('-', '')
+        r = read_alignment  #.replace('-', '')
 
         line1 = []
         line2 = []
