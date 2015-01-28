@@ -21,7 +21,7 @@ def main():
         score, graph_alignment, read_alignment, truncated = \
                aligner.align(s)
 
-        assert not truncated
+        #assert not truncated
 
         g = graph_alignment #.replace('-', '')
         r = read_alignment  #.replace('-', '')
@@ -37,7 +37,7 @@ def main():
             else:
                 line2.append('|')
 
-        print '::', record.name
+        print '::', record.name, score, truncated
         for start in range(0, len(line1), 60):
             print "".join(line1[start:start+60])
             print "".join(line2[start:start+60])

@@ -169,3 +169,6 @@ ex1: simple-haplo-reads.dn.ct
 ex2: simple-reads.ct
 	count-by-align.py simple-reads.ct simple-haplo.fa > simple-haplo.counts
 	count-by-align.py simple-reads.ct simple-alt.fa > simple-alt.counts
+
+ex3:simple-haplo-reads.dn.ct
+	find-variant-by-align.py simple-haplo-reads.dn.ct simple-long.fa

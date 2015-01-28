@@ -6,3 +6,8 @@
 *.kh.info
 *.fai
 *~
+*.fq.gz
+*-reads.fa
+*.ct
+*.ct.info
+*.keep
