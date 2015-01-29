@@ -24,55 +24,64 @@ def reverse_complement(s):
 
 
 def align_long(ct, aligner, sta):
-    # first, pick seeds
-
+    K = ct.ksize()
+    
+    # first, pick seeds for each chunk
     seeds = []
     for start in range(0, len(sta), REGIONSIZE):
-        region = sta[start:start + REGIONSIZE + ct.ksize()]
+        region = sta[start:start + REGIONSIZE + K]
         seed_pos = find_highest_abund_kmer(ct, region)
         seeds.append(start + seed_pos)
 
     print >>sys.stderr, 'picked %d seeds' % len(seeds)
 
+    # then, break between-seed intervals down into regions, starting at
+    # first seed.
     region_coords = []
     for i in range(len(seeds) - 1):
         seed_pos = seeds[i]
         end_seed = seeds[i + 1] - 1
-        region_coords.append((seed_pos, end_seed + ct.ksize()))
+        region_coords.append((seed_pos, end_seed + K))
 
     region_coords.append((seeds[-1], len(sta)))
 
+    # start building piecewise alignments
     g_alignments = []
     r_alignments = []
     scores = []
 
     n = 0
     for (start, end) in region_coords:
-        print 'aligning', n, start, end, (end - start - ct.ksize())
+        #print 'aligning', n, start, end, (end - start - K)
         score, g, r, trunc = aligner.align(sta[start:end])
-        print len(g), len(r)
-        print sta[start:end]
-        print g
-        print r
-        assert not trunc, (start, end)
+
+        if trunc:
+            g = '-' * (end-start)
+            r = sta[start:end]
+            score = 0
 
         scores.append(score)
-        g_alignments.append(g[:-ct.ksize() + 1])
-        r_alignments.append(r[:-ct.ksize() + 1])
-        print g_alignments[-1], len(g_alignments[-1])
-        print r_alignments[-1], len(r_alignments[-1])
-        print 'xxx'
+        if end != len(sta):
+            g_alignments.append(g[:-K + 1])
+            r_alignments.append(r[:-K + 1])
+        else:
+            g_alignments.append(g)
+            r_alignments.append(r)
 
         n += 1
 
-    print >>sys.stderr, 'aligning BEGIN', 0, seeds[0] + ct.ksize() + 1
-    leftend = sta[0:seeds[0] + ct.ksize() + 1]
+    # deal with beginning, too.
+    leftend = sta[0:seeds[0] + K + 1]
     leftend_rc = reverse_complement(leftend)
     score, g, r, trunc = aligner.align(leftend_rc)
-    assert not trunc
+    
+    if trunc:
+        score = 0
+        g = '-' * len(leftend)
+        r = leftend_rc
 
-    g = reverse_complement(g[ct.ksize() + 1:])
-    r = reverse_complement(r[ct.ksize() + 1:])
+    g = reverse_complement(g[K + 1:])
+    r = reverse_complement(r[K + 1:])
 
     scores.insert(0, score)
     g_alignments.insert(0, g)
@@ -135,9 +144,8 @@ def main():
             print "".join(line2[start:start+60])
             print "".join(line3[start:start+60])
             print "".join(line4[start:start+60])
-            print '--'
+            print ''
 
-        #print record.name, ct.find_spectral_error_positions(s, 10)
 
 if __name__ == '__main__':
     main()
