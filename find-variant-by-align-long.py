@@ -11,6 +11,10 @@ REGIONSIZE = 50
 __complementTranslation = string.maketrans('ACTGactg-Nn', 'TGACtgac-Nn')
 
 
+def len_nogap(s):
+    return len(s.replace('-', ''))
+
+
 def reverse_complement(s):
     """
     Build reverse complement of 's', alignment-aware.
@@ -30,11 +34,54 @@ def stitch(gs, rs, K):
         ga.append(g[:-K + 1])
         ra.append(r[:-K + 1])
 
+    print 'XXX', gs[-1]
+    print 'XXX', rs[-1]    
     ga.append(gs[-1])
     ra.append(rs[-1])
 
     return "".join(ga), "".join(ra)
+
+
+def align_segment_right(aligner, seq, next_ch=None):
+    score, g, r, truncated = aligner.align(seq)
+
+    if truncated:
+        aligned_length = min(len_nogap(g), len_nogap(r))
+        unaligned_len = len(seq) - aligned_length
+
+        if next_ch:                     # try aligning backwards from next seed
+            unaligned_seq = seq[-unaligned_len:]
+            sr, gr, rr, truncr = align_segment_left(aligner,
+                                                    unaligned_seq + next_ch)
+            assert truncr               # _should_ be truncated!
+
+            middle_len = min(len_nogap(g + gr), len_nogap(r + rr))
+            g += '-' * middle_len + gr[:-1]
+            r += unaligned_seq[:middle_len] + rr[:-1]
+            score += sr
+        else:
+            g += '-' * unaligned_len
+            r += seq[-unaligned_len:]
+
+    return score, g, r, truncated
+
+
+def align_segment_left(aligner, seq):
+    seq_rc = reverse_complement(seq)
+    score, g, r, truncated = aligner.align(seq_rc)
+
+    if truncated:
+        aligned_length = min(len_nogap(g), len_nogap(r))
+        unaligned_len = len(seq) - aligned_length
+
+        g += '-' * unaligned_len
+        r += seq_rc[-unaligned_len:]
+
+    g = reverse_complement(g)
+    r = reverse_complement(r)
     
+    return score, g, r, truncated
+
 
 def align_long(ct, aligner, sta):
     K = ct.ksize()
@@ -64,40 +111,44 @@ def align_long(ct, aligner, sta):
     scores = []
 
     n = 0
-    for (start, end) in region_coords:
+    for (start, end) in region_coords[:-1]:
         #print 'aligning', n, start, end, (end - start - K)
-        score, g, r, trunc = aligner.align(sta[start:end])
-
-        if trunc:
-            g = '-' * (end-start)
-            r = sta[start:end]
-            score = 0
+        score, g, r, trunc = align_segment_right(aligner, sta[start:end],
+                                                 next_ch=sta[end])
 
         scores.append(score)
         g_alignments.append(g)
         r_alignments.append(r)
 
+        print n, g
+        print n, r, len(r)
+        
+
         n += 1
 
-    # deal with beginning, too.
-    leftend = sta[0:seeds[0] + K]
-    leftend_rc = reverse_complement(leftend)
-    score, g, r, trunc = aligner.align(leftend_rc)
+    # deal with end:
+    (start, end) = region_coords[-1]
+    score, g, r, trunc = align_segment_right(aligner, sta[start:end])
     
-    if trunc:
-        score = 0
-        g = '-' * len(leftend)
-        r = leftend_rc
+    scores.append(score)
+    g_alignments.append(g)
+    r_alignments.append(r)
 
-    g = g[1:]
-    r = r[1:]
-    g = reverse_complement(g)      # trim off 1-base overlap
-    r = reverse_complement(r)      # trim off 1-base overlap
+    print 'LAST :', g
+    print 'LAST2:', r, len(r)
 
+    # deal with beginning, too: reverse align from first seed.
+    leftend = sta[0:seeds[0] + K]
+    score, g, r, trunc = align_segment_left(aligner, leftend)
+    
+    g = g[:-1]                          # trim off seed match
+    r = r[:-1]
+    
     scores.insert(0, score)
     g_alignments.insert(0, g)
     r_alignments.insert(0, r)
 
+    # stitch all the alignments together
     final_g, final_r = stitch(g_alignments, r_alignments, K)
 
     return sum(scores), final_g, final_r
@@ -140,7 +191,7 @@ def main():
         line3 = []
         line4 = []
         m = 0
-        for n, (a, b, c) in enumerate(zip(g, r, s)):
+        for n, (a, b) in enumerate(zip(g, r)):
             line1.append(a)
             line3.append(b)
             if a == '-' or b == '-' or a != b:
@@ -148,11 +199,6 @@ def main():
             else:
                 line2.append('|')
                 m += 1
-
-            if b == '-':
-                line4.append('-')
-            else:
-                line4.append(c)
 
         ident = int(float(m) / n * 100)
 
