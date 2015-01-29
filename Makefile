@@ -172,3 +172,6 @@ ex2: simple-reads.ct
 
 ex3:simple-haplo-reads.dn.ct
 	find-variant-by-align.py simple-haplo-reads.dn.ct simple-long.fa
+
+ex4:simple-haplo-reads.dn.ct
+	find-variant-by-align-long.py simple-haplo-reads.dn.ct simple-haplo.fa
