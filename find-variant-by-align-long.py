@@ -23,6 +23,19 @@ def reverse_complement(s):
     return c
 
 
+def stitch(gs, rs, K):
+    ga = []
+    ra = []
+    for (g, r) in zip(gs[:-1], rs[:-1]):
+        ga.append(g[:-K + 1])
+        ra.append(r[:-K + 1])
+
+    ga.append(gs[-1])
+    ra.append(rs[-1])
+
+    return "".join(ga), "".join(ra)
+    
+
 def align_long(ct, aligner, sta):
     K = ct.ksize()
     
@@ -61,17 +74,13 @@ def align_long(ct, aligner, sta):
             score = 0
 
         scores.append(score)
-        if end != len(sta):
-            g_alignments.append(g[:-K + 1])
-            r_alignments.append(r[:-K + 1])
-        else:
-            g_alignments.append(g)
-            r_alignments.append(r)
+        g_alignments.append(g)
+        r_alignments.append(r)
 
         n += 1
 
     # deal with beginning, too.
-    leftend = sta[0:seeds[0] + K + 1]
+    leftend = sta[0:seeds[0] + K]
     leftend_rc = reverse_complement(leftend)
     score, g, r, trunc = aligner.align(leftend_rc)
     
@@ -80,15 +89,16 @@ def align_long(ct, aligner, sta):
         g = '-' * len(leftend)
         r = leftend_rc
 
-    g = reverse_complement(g[K + 1:])
-    r = reverse_complement(r[K + 1:])
+    g = g[1:]
+    r = r[1:]
+    g = reverse_complement(g)      # trim off 1-base overlap
+    r = reverse_complement(r)      # trim off 1-base overlap
 
     scores.insert(0, score)
     g_alignments.insert(0, g)
     r_alignments.insert(0, r)
 
-    final_g = "".join(g_alignments)
-    final_r = "".join(r_alignments)
+    final_g, final_r = stitch(g_alignments, r_alignments, K)
 
     return sum(scores), final_g, final_r
 
@@ -129,21 +139,29 @@ def main():
         line2 = []
         line3 = []
         line4 = []
+        m = 0
         for n, (a, b, c) in enumerate(zip(g, r, s)):
             line1.append(a)
             line3.append(b)
-            if a != b:
+            if a == '-' or b == '-' or a != b:
                 line2.append(' ')
             else:
                 line2.append('|')
-            line4.append(c)
+                m += 1
 
-        print '::', record.name, score, len(s), len(line1)
+            if b == '-':
+                line4.append('-')
+            else:
+                line4.append(c)
+
+        ident = int(float(m) / n * 100)
+
+        print '::', record.name, score, len(s), len(line1), "%s%% ident" % ident
         for start in range(0, len(line1), 60):
             print "".join(line1[start:start+60])
             print "".join(line2[start:start+60])
             print "".join(line3[start:start+60])
-            print "".join(line4[start:start+60])
+#            print "".join(line4[start:start+60])
             print ''
 
 
