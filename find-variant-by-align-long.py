@@ -30,12 +30,18 @@ def reverse_complement(s):
 def stitch(gs, rs, K):
     ga = []
     ra = []
+
+    n = 0
     for (g, r) in zip(gs[:-1], rs[:-1]):
+        #assert len(g) == len(r), n
+        minlen = min(len(g), len(r))
+        g = g[:minlen] # @CTB
+        r = r[:minlen]
+        
         ga.append(g[:-K + 1])
         ra.append(r[:-K + 1])
+        n += 1
 
-    print 'XXX', gs[-1]
-    print 'XXX', rs[-1]    
     ga.append(gs[-1])
     ra.append(rs[-1])
 
@@ -43,6 +49,7 @@ def stitch(gs, rs, K):
 
 
 def align_segment_right(aligner, seq, next_ch=None):
+    assert len(seq) >= 21
     score, g, r, truncated = aligner.align(seq)
 
     if truncated:
@@ -53,7 +60,7 @@ def align_segment_right(aligner, seq, next_ch=None):
             unaligned_seq = seq[-unaligned_len:]
             sr, gr, rr, truncr = align_segment_left(aligner,
                                                     unaligned_seq + next_ch)
-            assert truncr               # _should_ be truncated!
+            #assert truncr               # _should_ be truncated!
 
             middle_len = min(len_nogap(g + gr), len_nogap(r + rr))
             g += '-' * middle_len + gr[:-1]
@@ -67,6 +74,7 @@ def align_segment_right(aligner, seq, next_ch=None):
 
 
 def align_segment_left(aligner, seq):
+    assert len(seq) > 21
     seq_rc = reverse_complement(seq)
     score, g, r, truncated = aligner.align(seq_rc)
 
@@ -89,11 +97,12 @@ def align_long(ct, aligner, sta):
     # first, pick seeds for each chunk
     seeds = []
     for start in range(0, len(sta), REGIONSIZE):
-        region = sta[start:start + REGIONSIZE + K]
+        region = sta[start:start + REGIONSIZE + K - 1]
         seed_pos = find_highest_abund_kmer(ct, region)
         seeds.append(start + seed_pos)
 
     print >>sys.stderr, 'picked %d seeds' % len(seeds)
+    assert len(seeds) == len(set(seeds))
 
     # then, break between-seed intervals down into regions, starting at
     # first seed.
@@ -103,7 +112,8 @@ def align_long(ct, aligner, sta):
         end_seed = seeds[i + 1] - 1
         region_coords.append((seed_pos, end_seed + K))
 
-    region_coords.append((seeds[-1], len(sta)))
+    if len(sta) - seeds[-1] > K:
+        region_coords.append((seeds[-1], len(sta)))
 
     # start building piecewise alignments
     g_alignments = []
@@ -120,10 +130,6 @@ def align_long(ct, aligner, sta):
         g_alignments.append(g)
         r_alignments.append(r)
 
-        print n, g
-        print n, r, len(r)
-        
-
         n += 1
 
     # deal with end:
@@ -133,9 +139,6 @@ def align_long(ct, aligner, sta):
     scores.append(score)
     g_alignments.append(g)
     r_alignments.append(r)
-
-    print 'LAST :', g
-    print 'LAST2:', r, len(r)
 
     # deal with beginning, too: reverse align from first seed.
     leftend = sta[0:seeds[0] + K]
@@ -200,9 +203,9 @@ def main():
                 line2.append('|')
                 m += 1
 
-        ident = int(float(m) / n * 100)
+        ident = float(m) / n * 100
 
-        print '::', record.name, score, len(s), len(line1), "%s%% ident" % ident
+        print '::', record.name, score, len(s), len(line1), "%.2f%% ident" % ident, m, n
         for start in range(0, len(line1), 60):
             print "".join(line1[start:start+60])
             print "".join(line2[start:start+60])
