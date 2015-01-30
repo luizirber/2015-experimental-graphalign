@@ -7,9 +7,6 @@ from graphAlignment import GraphAlignment, make_gap, reverse_complement
 
 REGIONSIZE = 50
 
-def len_nogap(s):
-    return len(s.replace('-', ''))
-
 
 def stitch(galign, K):
     ga = []
@@ -19,11 +16,7 @@ def stitch(galign, K):
     for gg in galign[:-1]:
         g = gg.g
         r = gg.r
-        
-        #assert len(g) == len(r), n
-        minlen = min(len(g), len(r))
-        g = g[:minlen] # @CTB
-        r = r[:minlen]
+        assert len(g) == len(r)
         
         ga.append(g[:-K + 1])
         ra.append(r[:-K + 1])
@@ -40,35 +33,31 @@ def align_segment_right(aligner, seq, next_ch=None):
     score, g, r, truncated = aligner.align(seq)
     galign = GraphAlignment(g, r)
 
+    # did it fail to align across entire segment?
     if truncated:
         aligned_length = galign.refseqlen()
         unaligned_len = len(seq) - aligned_length
 
-        if next_ch:                     # try aligning backwards from next seed
+        # if we are given next ch, try aligning backwards from next seed
+        if next_ch:
             unaligned_seq = seq[-unaligned_len:]
             sr, ggr = align_segment_left(aligner, unaligned_seq + next_ch)
 
+            # make a gap if there needs to be one
             middle_len = len(seq) - galign.refseqlen() - ggr.refseqlen()
             galign += make_gap(unaligned_seq[:middle_len])[:-1]
             score += sr
         else:
+            # if not, just build a gap...
             galign += make_gap(seq[-unaligned_len:])
 
     return score, galign
 
 
 def align_segment_left(aligner, seq):
-    assert len(seq) > 21
     seq_rc = reverse_complement(seq)
-    score, g, r, truncated = aligner.align(seq_rc)
-    galign = GraphAlignment(g, r)
-
-    if truncated:
-        aligned_length = min(len_nogap(g), len_nogap(r))
-        unaligned_len = len(seq) - aligned_length
-        galign += make_gap(seq_rc[-unaligned_len:])
-
-    return score, galign.reverse_complement()
+    score, galign = align_segment_right(aligner, seq_rc)
+    return score, galign.rc()
 
 
 def align_long(ct, aligner, sta):
