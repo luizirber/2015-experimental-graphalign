@@ -11,3 +11,4 @@
 *.ct
 *.ct.info
 *.keep
+*.pyc
