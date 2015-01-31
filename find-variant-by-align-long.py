@@ -9,6 +9,8 @@ REGIONSIZE = 50
 
 
 def stitch(galign, K):
+    """Stitch together multiple alignments, assuming all overlaps are
+    off-by-one on the right end."""
     ga = []
     ra = []
 
@@ -42,11 +44,8 @@ def align_segment_right(aligner, seq, next_ch=None):
         if next_ch:
             unaligned_seq = seq[-unaligned_len:]
             sr, ggr = align_segment_left(aligner, unaligned_seq + next_ch)
-
-            # make a gap if there needs to be one
-            middle_len = len(seq) - galign.refseqlen() - ggr.refseqlen()
-            galign += make_gap(unaligned_seq[:middle_len])[:-1]
-            score += sr
+            galign += ggr[:-1]
+            score += sr                 # need to adjust score down... @@
         else:
             # if not, just build a gap...
             galign += make_gap(seq[-unaligned_len:])
@@ -67,6 +66,9 @@ def align_long(ct, aligner, sta):
     seeds = []
     for start in range(0, len(sta), REGIONSIZE):
         region = sta[start:start + REGIONSIZE + K - 1]
+        if len(region) < K:
+            assert len(sta) - start < REGIONSIZE
+            break
         seed_pos = find_highest_abund_kmer(ct, region)
         seeds.append(start + seed_pos)
 
@@ -158,6 +160,14 @@ def main():
             print alignment[start:start+60]
 
         print len(s), alignment.refseqlen()
+
+        for i in range(0, len(s)):
+            break                       # @CTB debugging code
+            a = alignment[:i]
+            pos = a.refseqlen()
+            if alignment[i][1] in 'ACGT':
+                print i, alignment[i], pos, s[pos], alignment[i][1] == s[pos]
+                assert alignment[i][1] == s[pos]
 
 
 if __name__ == '__main__':
