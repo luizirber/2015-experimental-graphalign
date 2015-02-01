@@ -54,12 +54,17 @@ class GraphAlignment(object):
 
     def compare(self):
         n = len(self.g)
-        m = 0
-        for (a, b) in zip(self.g, self.r):
-            if not (a in '-=' or b in '-=' or a != b):
-                m += 1
+        m = n
+
+        for n, a, b in self.mismatches():
+            m -= 1
 
         return m, n
+
+    def mismatches(self):
+        for n, (a, b) in enumerate(zip(self.g, self.r)):
+            if (a in '-=' or b in '-=' or a != b):
+                yield n, a, b
 
     def __str__(self):
         line1 = []
