@@ -111,6 +111,7 @@ class AlignmentIndex(object):
         self.freq = int(freq)
 
     def get_gi(self, ri):
+        "Return alignment coordinates cooresponding to reference seq coords."
         rpost = int(ri / self.freq) * self.freq
         gpost = self.r_to_g[rpost]
 
@@ -133,6 +134,7 @@ class AlignmentIndex(object):
         return gi
 
     def get_ri(self, gi):
+        "Return reference sequence coordinates from alignment coordinates."
         gpost = int(gi / self.freq) * self.freq
         ri = self.g_to_r[gpost]
 
