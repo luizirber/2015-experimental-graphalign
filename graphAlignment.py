@@ -10,10 +10,6 @@ __complementTranslation = string.maketrans('ACTGactg-=Nn', 'TGACtgac-=Nn')
 REGIONSIZE = 50
 
 
-def len_nogap(s):
-    return len(s.replace('-', ''))
-
-
 def reverse_complement(s):
     """
     Build reverse complement of 's', alignment-aware.
@@ -29,16 +25,8 @@ def reverse_complement(s):
 class GraphAlignment(object):
     def __init__(self, g, r):
         assert len(g) == len(r), (g, len(g), r, len(r))
-        self.g = g
-        self.r = r
-
-        counts = [0] * len(r)
-        c = 0
-        for ch in r:
-            if ch == ch.upper():
-                c += 1
-            counts.append(c)
-        self.truepos = counts
+        self.g = g.upper()
+        self.r = r.upper()
 
     def reverse_complement(self):
         return GraphAlignment(reverse_complement(self.g),
@@ -53,7 +41,7 @@ class GraphAlignment(object):
         return len(self.g)
 
     def refseqlen(self):
-        r = self.r.upper()
+        r = self.r
         return r.count('G') + r.count('C') + r.count('T') + r.count('A')
 
     def __getitem__(self, i):
@@ -105,7 +93,7 @@ def _index_alignment(galign, freq=100):
         if si % freq == 0:
             r_to_g[si] = gi
 
-        if b.upper() in 'ACGT':
+        if b in 'ACGT':
             si += 1
 
     return g_to_r, r_to_g
@@ -126,14 +114,14 @@ class AlignmentIndex(object):
         
         while diff > 0:
             (a, b) = self.galign[gi]
-            if b.upper() in 'ACGT':
+            if b in 'ACGT':
                 diff -= 1
             gi += 1
 
         # make sure it's on a valid letter ;)
         while 1:
             (a, b) = self.galign[gi]
-            if b.upper() in 'ACGT':
+            if b in 'ACGT':
                 break
             gi += 1
             
@@ -148,7 +136,7 @@ class AlignmentIndex(object):
             (a, b) = self.galign[gpost]
             diff -= 1
             gpost += 1
-            if b.upper() in 'ACGT':
+            if b in 'ACGT':
                 ri += 1
 
         return ri
@@ -157,13 +145,13 @@ class AlignmentIndex(object):
         alignment = self.galign
         
         for gi in range(len(alignment)):
-            if alignment[gi][1].upper() in 'ACGT':
+            if alignment[gi][1] in 'ACGT':
                 ri = self.get_ri(gi)
-                assert alignment[gi][1].upper() == seq[ri]
+                assert alignment[gi][1] == seq[ri]
 
         for ri in range(len(seq)):
             gi = self.get_gi(ri)
-            assert seq[ri] == alignment[gi][1].upper()
+            assert seq[ri] == alignment[gi][1]
 
 
 def stitch(galign, K):
@@ -192,14 +180,8 @@ def stitch(galign, K):
 
 
 def align_segment_right(aligner, seq, next_ch=None):
-    assert len(seq) >= 21
     score, g, r, truncated = aligner.align(seq)
     galign = GraphAlignment(g, r)
-
-    print 'RIGHTALIGN'
-    print galign
-    print galign.refseqlen()
-    print 'ENDALIGN'
 
     # did it fail to align across entire segment?
     if truncated:
@@ -208,36 +190,26 @@ def align_segment_right(aligner, seq, next_ch=None):
 
         # if we are given next ch, try aligning backwards from next seed
         if next_ch:
-            print 'XXX'
             unaligned_seq = seq[-unaligned_len:]
             sr, ggr = align_segment_left(aligner, unaligned_seq + next_ch)
             galign += ggr[:-1]
             score += sr                 # need to adjust score down... @@
         else:
-            print 'YYY', seq[-unaligned_len:]
             # if not, just build a gap...
             galign += make_gap(seq[-unaligned_len:])
 
     assert galign.refseqlen() == len(seq)
-    print 'FINAL'
-    print galign
-    print 'ENDFINAL'
 
     return score, galign
 
 
 def align_segment_left(aligner, seq):
-    print 'ALIGN LEFT:', seq
     seq_rc = reverse_complement(seq)
     score, galign = align_segment_right(aligner, seq_rc)
-    print 'ALIGNED'
-    galign.rc()
-    print 'ENDALIGN'
     return score, galign.rc()
 
 
 def align_long(ct, aligner, sta):
-    print sta[:30]
     K = ct.ksize()
     
     # first, pick seeds for each chunk
@@ -251,7 +223,6 @@ def align_long(ct, aligner, sta):
         seeds.append(start + seed_pos)
 
     assert len(seeds) == len(set(seeds))
-    print seeds
 
     # then, break between-seed intervals down into regions, starting at
     # first seed.
@@ -261,7 +232,7 @@ def align_long(ct, aligner, sta):
         end_seed = seeds[i + 1] - 1
         region_coords.append((seed_pos, end_seed + K))
 
-    if len(sta) - seeds[-1] > K:
+    if len(sta) - seeds[-1] > K: # @CTB
         region_coords.append((seeds[-1], len(sta)))
     else:
         (last_seed, _) = region_coords.pop()
@@ -275,8 +246,6 @@ def align_long(ct, aligner, sta):
     for (start, end) in region_coords[:-1]:
         score, galign = align_segment_right(aligner, sta[start:end],
                                             next_ch=sta[end])
-        
-        
         scores.append(score)
         alignments.append(galign)
         
@@ -285,9 +254,6 @@ def align_long(ct, aligner, sta):
     # deal with end (no possibility of alignment from right)
     (start, end) = region_coords[-1]
     score, galign = align_segment_right(aligner, sta[start:end])
-    print 'END', sta[start:end], end, len(sta)
-    print galign
-    print 'ENDEND'
     
     alignments.append(galign)
     scores.append(score)
@@ -299,9 +265,6 @@ def align_long(ct, aligner, sta):
     galign = galign[:-1]                # trim off seed k-mer
     alignments.insert(0, galign)
     scores.insert(0, score)
-    print 'LEFT'
-    print galign
-    print 'LEFT'
 
     # stitch all the alignments together
     final = stitch(alignments, K)
