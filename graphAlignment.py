@@ -1,14 +1,17 @@
 import sys
 import string
 import array
+import khmer
+import screed
+
 __complementTranslation = string.maketrans('ACTGactg-=Nn', 'TGACtgac-=Nn')
+
+
+REGIONSIZE = 50
 
 
 def len_nogap(s):
     return len(s.replace('-', ''))
-
-
-__complementTranslation = string.maketrans('ACTGactg-=Nn', 'TGACtgac-=Nn')
 
 
 def reverse_complement(s):
@@ -50,8 +53,8 @@ class GraphAlignment(object):
         return len(self.g)
 
     def refseqlen(self):
-        return self.r.count('G') + self.r.count('C') + self.r.count('T') + \
-               self.r.count('A')
+        r = self.r.upper()
+        return r.count('G') + r.count('C') + r.count('T') + r.count('A')
 
     def __getitem__(self, i):
         if isinstance(i, slice):
@@ -102,7 +105,7 @@ def _index_alignment(galign, freq=100):
         if si % freq == 0:
             r_to_g[si] = gi
 
-        if b in 'ACGT':
+        if b.upper() in 'ACGT':
             si += 1
 
     return g_to_r, r_to_g
@@ -123,14 +126,14 @@ class AlignmentIndex(object):
         
         while diff > 0:
             (a, b) = self.galign[gi]
-            if b in 'ACGT':
+            if b.upper() in 'ACGT':
                 diff -= 1
             gi += 1
 
         # make sure it's on a valid letter ;)
         while 1:
             (a, b) = self.galign[gi]
-            if b in 'ACGT':
+            if b.upper() in 'ACGT':
                 break
             gi += 1
             
@@ -145,13 +148,22 @@ class AlignmentIndex(object):
             (a, b) = self.galign[gpost]
             diff -= 1
             gpost += 1
-            if b in 'ACGT':
+            if b.upper() in 'ACGT':
                 ri += 1
 
         return ri
 
+    def _sanityCheck(self, seq):
+        alignment = self.galign
+        
+        for gi in range(len(alignment)):
+            if alignment[gi][1].upper() in 'ACGT':
+                ri = self.get_ri(gi)
+                assert alignment[gi][1].upper() == seq[ri]
 
-REGIONSIZE = 50
+        for ri in range(len(seq)):
+            gi = self.get_gi(ri)
+            assert seq[ri] == alignment[gi][1].upper()
 
 
 def stitch(galign, K):
@@ -184,6 +196,11 @@ def align_segment_right(aligner, seq, next_ch=None):
     score, g, r, truncated = aligner.align(seq)
     galign = GraphAlignment(g, r)
 
+    print 'RIGHTALIGN'
+    print galign
+    print galign.refseqlen()
+    print 'ENDALIGN'
+
     # did it fail to align across entire segment?
     if truncated:
         aligned_length = galign.refseqlen()
@@ -191,24 +208,36 @@ def align_segment_right(aligner, seq, next_ch=None):
 
         # if we are given next ch, try aligning backwards from next seed
         if next_ch:
+            print 'XXX'
             unaligned_seq = seq[-unaligned_len:]
             sr, ggr = align_segment_left(aligner, unaligned_seq + next_ch)
             galign += ggr[:-1]
             score += sr                 # need to adjust score down... @@
         else:
+            print 'YYY', seq[-unaligned_len:]
             # if not, just build a gap...
             galign += make_gap(seq[-unaligned_len:])
+
+    assert galign.refseqlen() == len(seq)
+    print 'FINAL'
+    print galign
+    print 'ENDFINAL'
 
     return score, galign
 
 
 def align_segment_left(aligner, seq):
+    print 'ALIGN LEFT:', seq
     seq_rc = reverse_complement(seq)
     score, galign = align_segment_right(aligner, seq_rc)
+    print 'ALIGNED'
+    galign.rc()
+    print 'ENDALIGN'
     return score, galign.rc()
 
 
 def align_long(ct, aligner, sta):
+    print sta[:30]
     K = ct.ksize()
     
     # first, pick seeds for each chunk
@@ -221,8 +250,8 @@ def align_long(ct, aligner, sta):
         seed_pos = find_highest_abund_kmer(ct, region)
         seeds.append(start + seed_pos)
 
-    print >>sys.stderr, 'picked %d seeds' % len(seeds)
     assert len(seeds) == len(set(seeds))
+    print seeds
 
     # then, break between-seed intervals down into regions, starting at
     # first seed.
@@ -234,6 +263,9 @@ def align_long(ct, aligner, sta):
 
     if len(sta) - seeds[-1] > K:
         region_coords.append((seeds[-1], len(sta)))
+    else:
+        (last_seed, _) = region_coords.pop()
+        region_coords.append((last_seed, len(sta)))
 
     # start building piecewise alignments, anchored by seeds.
     alignments = []
@@ -253,6 +285,9 @@ def align_long(ct, aligner, sta):
     # deal with end (no possibility of alignment from right)
     (start, end) = region_coords[-1]
     score, galign = align_segment_right(aligner, sta[start:end])
+    print 'END', sta[start:end], end, len(sta)
+    print galign
+    print 'ENDEND'
     
     alignments.append(galign)
     scores.append(score)
@@ -264,6 +299,9 @@ def align_long(ct, aligner, sta):
     galign = galign[:-1]                # trim off seed k-mer
     alignments.insert(0, galign)
     scores.insert(0, score)
+    print 'LEFT'
+    print galign
+    print 'LEFT'
 
     # stitch all the alignments together
     final = stitch(alignments, K)
@@ -283,3 +321,52 @@ def find_highest_abund_kmer(ct, r):
             pos = kstart
 
     return pos
+
+
+def test_1():
+    ct = khmer.new_counting_hash(20, 1.1e6, 4)
+    ct.consume_fasta('simple-haplo-reads.fa.keep')
+    #ct = khmer.load_counting_hash('simple-haplo-reads.dn.ct')
+    aligner = khmer.new_readaligner(ct, 5, 1.0)
+
+    seq = "".join("""GTCCTGGCGGTCCCCATTCA
+    CTGCCATTGCCCCAAGCATGTTGGGGCGAGACCCTAGCGCATCTATTGACGATAGTCTAAATCGGCGAATTACGTAGCT
+    GTAGGAAGTCACATGTGCTAAATATCAG
+    TGATTCGCATCTTTCACCGCCGTACCAAGTGGAACCGGGGCCACCGCGTGTGTTATAACCTATATTGATCTAACTTAATGTCGTAGTGTGTTGCAAATGCTCGAGAGCGTGATGGCGGTTCGACATTGGAAATACCCACGCACTCAAGTACGTAGAAGCA
+    GCACAGTTTTTTATACGAAACCGTCTGCGTCAAGACGGGCCACATGGT
+    """.strip().split())
+
+    score, alignment = align_long(ct, aligner, seq)
+
+    print len(seq), alignment.refseqlen()
+
+    for start in range(0, len(alignment), 60):
+        print alignment[start:start+60]
+    
+
+    gidx = AlignmentIndex(alignment)
+    gidx._sanityCheck(seq)
+
+
+def test_2():
+    ct = khmer.new_counting_hash(20, 1.1e6, 4)
+    ct.consume_fasta('simple-haplo-reads.fa.keep')
+    aligner = khmer.new_readaligner(ct, 5, 1.0)
+
+    seq = "".join("""GTCCTGGCGGTCCCCATTCA
+    CTGCCATTGCCCCAAGCATGTTGGGGCGAGACCCTAGCGCATCTATTGACGATAGTCTAAATCGGCGAATTACGTAGCT
+    GTAGGAAGTCACATGTGCTAAATATCAG
+    TGATTCGCATCTTTCACCGCCGTACCAAGTGGAACCGGGGCCACCGCGTGTGTTATAACCTAT
+    """.strip().split())
+    
+    seq = list(screed.open('simplefoo.fa'))[0].sequence
+
+    score, alignment = align_long(ct, aligner, seq)
+
+    print len(seq), alignment.refseqlen()
+
+    for start in range(0, len(alignment), 60):
+        print alignment[start:start+60]
+    
+    gidx = AlignmentIndex(alignment)
+    gidx._sanityCheck(seq)
