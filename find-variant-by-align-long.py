@@ -26,8 +26,8 @@ def main():
 
         m, n = alignment.compare()
         print record.name, m, n, n - m, "%.3f%%" % (float(m)/ n * 100)
-        #for start in range(0, len(alignment), 60):
-        #    print alignment[start:start+60]
+        for start in range(0, len(alignment), 60):
+            print alignment[start:start+60]
 
         if 0:
             gidx = AlignmentIndex(alignment)
