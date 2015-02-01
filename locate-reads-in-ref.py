@@ -69,12 +69,15 @@ def main():
     # now, walk through the reads and map to graph
     aligner = khmer.new_readaligner(ct, 0, 1.0)
     for read in screed.open(args.readfile):
+
+        # align to graph, where possible
         readseq = read.sequence.replace('N', 'A')
         score, g, r, truncated = aligner.align(readseq)
         if truncated:
             print >>sys.stderr, "IGNORING read", read.name
             continue
 
+        # find locations in reference where read alignment overlaps a tag
         refseq = g.replace('-', '')
         ptags = ct.get_tags_and_positions(refseq)
         assert len(ptags)
@@ -83,21 +86,42 @@ def main():
         for pos, tag in ptags:
             refposns.extend(tags_to_positions[tag])
 
-
+        # extract the larger region, remap read to get exact positions
         regions = turn_locations_into_regions(refposns)
-        print read.name, 'found', len(regions)
         for (ref, start, end) in regions:
+
+            # pull out reference region
             referenceseq = references[ref]
             start = max(start - REGIONSIZE/2, 0)
             end = min(end + REGIONSIZE/2, len(referenceseq))
             regionseq = referenceseq[start:end]
-            print len(regionseq), start, end
 
+            # align region back to read
             nct = khmer.new_counting_hash(21, 1e5, 4)
-            nct.consume(regionseq)
+            nct.consume(readseq)
             naligner = khmer.new_readaligner(nct, 1, 1.0)
-            score, galign = graphAlignment.align_long(nct, naligner, readseq)
-            print galign
+            score, galign = graphAlignment.align_long(nct, naligner, regionseq)
+
+            for n, (a, b) in enumerate(galign):
+                if a != '=':
+                    break
+
+            o = len(galign)
+            while 1:
+                (a, b) = galign[o - 1]
+                if a != '=':
+                    break
+                o -= 1
+
+            if '=' in galign[n:o].g:
+                assert 0
+
+            gidx = graphAlignment.AlignmentIndex(galign)
+
+            print 'Read %s aligns to %s[%s:%s]' % (read.name,
+                                                   ref, start + n, start + o)
+            print galign[n:o]
+            #print referenceseq[start + n:start + o]
 
 if __name__ == '__main__':
     main()

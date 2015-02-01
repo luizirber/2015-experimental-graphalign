@@ -187,6 +187,9 @@ def stitch(galign, K):
 
 
 def align_segment_right(aligner, seq, next_ch=None):
+    if len(seq) < 21: # @CTB
+        return 0, make_gap(seq)
+
     score, g, r, truncated = aligner.align(seq)
     galign = GraphAlignment(g, r)
 
