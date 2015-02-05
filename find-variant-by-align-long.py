@@ -29,10 +29,17 @@ def main():
         for start in range(0, len(alignment), 60):
             print alignment[start:start+60]
 
-        if 0:
+        if 1:
             gidx = AlignmentIndex(alignment)
-            for gi, a, b in alignment.mismatches():
-                print gi, a, b, gidx.get_ri(gi)
+            fp = open('variants.txt', 'w')
+
+            for gi, a, b in alignment.variants():
+                kmer = alignment.g[gi:gi+50]
+                if '=' in kmer:
+                    continue
+                
+                kmer = kmer.replace('-', '')[:ct.ksize()]
+                print >>fp, gi, a, b, gidx.get_ri(gi), kmer, ct.get(kmer)
 
         if 0:
             print len(seq), alignment.refseqlen()

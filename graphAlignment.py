@@ -56,7 +56,7 @@ class GraphAlignment(object):
         n = len(self.g)
         m = n
 
-        for n, a, b in self.mismatches():
+        for _, a, b in self.mismatches():
             m -= 1
 
         return m, n
@@ -64,6 +64,13 @@ class GraphAlignment(object):
     def mismatches(self):
         for n, (a, b) in enumerate(zip(self.g, self.r)):
             if (a in '-=' or b in '-=' or a != b):
+                yield n, a, b
+
+    def variants(self):
+        for n, (a, b) in enumerate(zip(self.g, self.r)):
+            if a == '=':
+                continue
+            if a != b:
                 yield n, a, b
 
     def __str__(self):
@@ -190,7 +197,7 @@ def align_segment_right(aligner, seq, next_ch=None):
     if len(seq) < 21: # @CTB
         return 0, make_gap(seq)
 
-    score, g, r, truncated = aligner.align(seq)
+    score, g, r, truncated = aligner.align_forward(seq)
     galign = GraphAlignment(g, r)
 
     # did it fail to align across entire segment?
