@@ -12,7 +12,7 @@ def main():
     args = parser.parse_args()
 
     ct = khmer.load_counting_hash(args.table)
-    aligner = khmer.new_readaligner(ct, 5, 1.0)
+    aligner = khmer.ReadAligner(ct, 5, 1.0)
 
     for record in screed.open(args.ref):
         s = record.sequence
@@ -45,6 +45,7 @@ def main():
             print '--'
 
         #print record.name, ct.find_spectral_error_positions(s, 10)
+
 
 if __name__ == '__main__':
     main()

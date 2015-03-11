@@ -67,7 +67,7 @@ def main():
             tags_to_positions[tag] = x
 
     # now, walk through the reads and map to graph
-    aligner = khmer.new_readaligner(ct, 0, 1.0)
+    aligner = khmer.ReadAligner(ct, 0, 1.0)
     for read in screed.open(args.readfile):
 
         # align to graph, where possible
@@ -99,7 +99,7 @@ def main():
             # align region back to read
             nct = khmer.new_counting_hash(21, 1e5, 4)
             nct.consume(readseq)
-            naligner = khmer.new_readaligner(nct, 1, 1.0)
+            naligner = khmer.ReadAligner(nct, 1, 1.0)
             score, galign = graphAlignment.align_long(nct, naligner, regionseq)
 
             for n, (a, b) in enumerate(galign):

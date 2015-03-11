@@ -13,7 +13,7 @@ def main():
     args = parser.parse_args()
 
     ct = khmer.load_counting_hash(args.table)
-    aligner = khmer.new_readaligner(ct, 5, 1.0)
+    aligner = khmer.ReadAligner(ct, 5, 1.0)
 
     for record in screed.open(args.ref):
         seq = record.sequence
@@ -28,6 +28,9 @@ def main():
         print record.name, m, n, n - m, "%.3f%%" % (float(m)/ n * 100)
         for start in range(0, len(alignment), 60):
             print alignment[start:start+60]
+
+        for start in range(len(alignment.g)):
+            print alignment.kmer_abundance(ct, start)
 
         if 1:
             gidx = AlignmentIndex(alignment)
