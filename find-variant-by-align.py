@@ -46,6 +46,8 @@ def main():
 
         #print record.name, ct.find_spectral_error_positions(s, 10)
 
+        #print covs
+
 
 if __name__ == '__main__':
     main()

@@ -29,19 +29,24 @@ def main():
         for start in range(0, len(alignment), 60):
             print alignment[start:start+60]
 
-        for start in range(len(alignment.g)):
-            print alignment.kmer_abundance(ct, start)
+#        print len(alignment.covs), len(alignment.g)
+    
+#        for start in range(len(alignment.g)):
+#            print start, alignment.kmer_abundance(ct, start), \
+#                  alignment.covs[start]
 
         if 1:
             gidx = AlignmentIndex(alignment)
             fp = open('variants.txt', 'w')
 
             for gi, a, b in alignment.variants():
-                kmer = alignment.g[gi:gi+50]
+                kmer = alignment.g[gi:]
                 if '=' in kmer:
                     continue
                 
                 kmer = kmer.replace('-', '')[:ct.ksize()]
+                if len(kmer) < ct.ksize():
+                    break
                 print >>fp, gi, a, b, gidx.get_ri(gi), kmer, ct.get(kmer)
 
         if 0:

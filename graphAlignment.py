@@ -23,19 +23,22 @@ def reverse_complement(s):
 
 
 class GraphAlignment(object):
-    def __init__(self, g, r):
+    def __init__(self, g, r, covs):
         assert len(g) == len(r), (g, len(g), r, len(r))
         self.g = g.upper()
         self.r = r.upper()
+        self.covs = covs
 
     def reverse_complement(self):
         return GraphAlignment(reverse_complement(self.g),
-                              reverse_complement(self.r))
+                              reverse_complement(self.r),
+                              list(reversed(self.covs)))
 
     rc = reverse_complement
 
     def __add__(self, other):
-        return GraphAlignment(self.g + other.g, self.r + other.r)
+        return GraphAlignment(self.g + other.g, self.r + other.r,
+                              self.covs + other.covs)
 
     def __len__(self):
         return len(self.g)
@@ -44,13 +47,49 @@ class GraphAlignment(object):
         r = self.r
         return r.count('G') + r.count('C') + r.count('T') + r.count('A')
 
+    def kmer_abundance(self, ct, gi):
+        if self.g[gi] in '-=':
+            return 0
+
+        start = gi
+
+        n_ch = 0
+        while n_ch < ct.ksize() and gi < len(self.g):
+            if self.g[gi] == '=':
+                gi -= 1
+                break
+            elif self.g[gi] != '-':
+                n_ch += 1
+            gi += 1
+
+        end = gi
+
+        if n_ch < ct.ksize():
+            gi = start
+            gi -= 1
+            while n_ch < ct.ksize() and gi >= 0:
+                if self.g[gi] == '=':
+                    break
+                elif self.g[gi] != '-':
+                    n_ch + 1
+                gi -= 1
+        kmer = self.g[start:end].replace('-', '')
+
+        if len(kmer) != ct.ksize():
+            return 0
+
+        return ct.get(kmer)
+
+
     def __getitem__(self, i):
         if isinstance(i, slice):
             start, stop, step = i.indices(len(self.g))
             assert step == 1
-            return GraphAlignment(self.g[start:stop], self.r[start:stop])
+            #print 'ZZZ', start, stop, len(self.g), len(self.covs)
+            return GraphAlignment(self.g[start:stop], self.r[start:stop],
+                                  self.covs[start:stop + 1])
 
-        return (self.g[i], self.r[i])
+        return (self.g[i], self.r[i], self.covs[i])
 
     def compare(self):
         n = len(self.g)
@@ -91,7 +130,7 @@ class GraphAlignment(object):
 
 
 def make_gap(r):
-    return GraphAlignment('='*len(r), r)
+    return GraphAlignment('='*len(r), r, [0]*len(r))
 
 
 def _index_alignment(galign, freq=100):
@@ -147,7 +186,7 @@ class AlignmentIndex(object):
 
         diff = gi - gpost
         while diff > 0:
-            (a, b) = self.galign[gpost]
+            (a, b, c) = self.galign[gpost]
             diff -= 1
             gpost += 1
             if b in 'ACGT':
@@ -173,6 +212,7 @@ def stitch(galign, K):
     off-by-one on the right end."""
     ga = []
     ra = []
+    covlist = []
 
     len_so_far = 0
 
@@ -180,25 +220,32 @@ def stitch(galign, K):
     for gg in galign[:-1]:
         g = gg.g
         r = gg.r
+        covs = gg.covs
         assert len(g) == len(r)
         
         ga.append(g[:-K + 1])
         ra.append(r[:-K + 1])
+        covlist.extend(covs)
 
         n += 1
 
     ga.append(galign[-1].g)
     ra.append(galign[-1].r)
+    covlist.extend(galign[-1].covs)
 
-    return GraphAlignment("".join(ga), "".join(ra))
+    return GraphAlignment("".join(ga), "".join(ra), covlist)
 
 
 def align_segment_right(aligner, seq, next_ch=None):
     if len(seq) < 21: # @CTB
         return 0, make_gap(seq)
 
-    score, g, r, truncated = aligner.align_forward(seq)
-    galign = GraphAlignment(g, r)
+    score, g, r, truncated, covs = aligner.align_forward(seq)
+    #print '**', len(g), len(r), len(covs)
+    #print g
+    #print r
+    #print covs
+    galign = GraphAlignment(g, r, covs)
 
     # did it fail to align across entire segment?
     if truncated:
@@ -281,6 +328,7 @@ def align_long(ct, aligner, sta):
     score, galign = align_segment_left(aligner, leftend)
 
     galign = galign[:-1]                # trim off seed k-mer
+    #print 'XX', len(galign.r), len(galign.g), len(galign.covs)
     alignments.insert(0, galign)
     scores.insert(0, score)
 
@@ -308,7 +356,7 @@ def test_1():
     ct = khmer.new_counting_hash(20, 1.1e6, 4)
     ct.consume_fasta('simple-haplo-reads.fa.keep')
     #ct = khmer.load_counting_hash('simple-haplo-reads.dn.ct')
-    aligner = khmer.new_readaligner(ct, 5, 1.0)
+    aligner = khmer.ReadAligner(ct, 5, 1.0)
 
     seq = "".join("""GTCCTGGCGGTCCCCATTCA
     CTGCCATTGCCCCAAGCATGTTGGGGCGAGACCCTAGCGCATCTATTGACGATAGTCTAAATCGGCGAATTACGTAGCT
@@ -332,7 +380,7 @@ def test_1():
 def test_2():
     ct = khmer.new_counting_hash(20, 1.1e6, 4)
     ct.consume_fasta('simple-haplo-reads.fa.keep')
-    aligner = khmer.new_readaligner(ct, 5, 1.0)
+    aligner = khmer.ReadAligner(ct, 5, 1.0)
 
     seq = "".join("""GTCCTGGCGGTCCCCATTCA
     CTGCCATTGCCCCAAGCATGTTGGGGCGAGACCCTAGCGCATCTATTGACGATAGTCTAAATCGGCGAATTACGTAGCT
