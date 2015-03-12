@@ -138,7 +138,7 @@ if __name__ == '__main__':
     graph = khmer.new_counting_hash(20, 1e7, 4)
     input_iter = screed.open(filename)
 
-    ## streaming error trimming
+    ## streaming error trimming via generators
     input_iter = broken_paired_reader(input_iter)
     input_iter = clean_reads(input_iter)
     input_iter = streamtrim(input_iter, graph, 20, 3)
@@ -146,15 +146,16 @@ if __name__ == '__main__':
     for n, is_pair, read1, read2 in input_iter:
         if n % 1000 == 0:
             print n
-    print n, 'total'
+    print n, 'sequences total'
 
-    ## diginorm
+    ## diginorm via generators
     graph = khmer.new_counting_hash(20, 1e7, 4)
     input_iter = screed.open(filename)
     input_iter = broken_paired_reader(input_iter)
+    input_iter = clean_reads(input_iter)
     input_iter = diginorm(input_iter, graph, 20)
     
     for n, is_pair, read1, read2 in input_iter:
         if n % 1000 == 0:
             print n
-    print n, 'total'
+    print n, 'sequences total'
