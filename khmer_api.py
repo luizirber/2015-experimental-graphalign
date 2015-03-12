@@ -131,12 +131,28 @@ def _trim_record(read, ct, cutoff):
 
 if __name__ == '__main__':
     import khmer, sys, screed, khmer.utils
-    ct = khmer.new_counting_hash(20, 1e7, 4)
+    from khmer.utils import broken_paired_reader
+    filename = sys.argv[1]
 
-    input_iter = khmer.utils.broken_paired_reader(screed.open(sys.argv[1]))
+
+    graph = khmer.new_counting_hash(20, 1e7, 4)
+    input_iter = screed.open(filename)
+
+    ## streaming error trimming
+    input_iter = broken_paired_reader(input_iter)
     input_iter = clean_reads(input_iter)
-    #input_iter = diginorm(input_iter, ct, 20)
-    input_iter = streamtrim(input_iter, ct, 20, 3)
+    input_iter = streamtrim(input_iter, graph, 20, 3)
+    
+    for n, is_pair, read1, read2 in input_iter:
+        if n % 1000 == 0:
+            print n
+    print n, 'total'
+
+    ## diginorm
+    graph = khmer.new_counting_hash(20, 1e7, 4)
+    input_iter = screed.open(filename)
+    input_iter = broken_paired_reader(input_iter)
+    input_iter = diginorm(input_iter, graph, 20)
     
     for n, is_pair, read1, read2 in input_iter:
         if n % 1000 == 0:
