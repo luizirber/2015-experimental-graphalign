@@ -48,6 +48,7 @@ class GraphAlignment(object):
         return r.count('G') + r.count('C') + r.count('T') + r.count('A')
 
     def kmer_abundance(self, ct, gi):
+        # note: this may differ from alignment.covs for unclear reasons.
         if self.g[gi] in '-=':
             return 0
 
@@ -85,9 +86,8 @@ class GraphAlignment(object):
         if isinstance(i, slice):
             start, stop, step = i.indices(len(self.g))
             assert step == 1
-            #print 'ZZZ', start, stop, len(self.g), len(self.covs)
             return GraphAlignment(self.g[start:stop], self.r[start:stop],
-                                  self.covs[start:stop + 1])
+                                  self.covs[start:stop])
 
         return (self.g[i], self.r[i], self.covs[i])
 
@@ -225,7 +225,7 @@ def stitch(galign, K):
         
         ga.append(g[:-K + 1])
         ra.append(r[:-K + 1])
-        covlist.extend(covs)
+        covlist.extend(covs[:-K + 1])
 
         n += 1
 
@@ -241,10 +241,6 @@ def align_segment_right(aligner, seq, next_ch=None):
         return 0, make_gap(seq)
 
     score, g, r, truncated, covs = aligner.align_forward(seq)
-    #print '**', len(g), len(r), len(covs)
-    #print g
-    #print r
-    #print covs
     galign = GraphAlignment(g, r, covs)
 
     # did it fail to align across entire segment?
@@ -328,7 +324,6 @@ def align_long(ct, aligner, sta):
     score, galign = align_segment_left(aligner, leftend)
 
     galign = galign[:-1]                # trim off seed k-mer
-    #print 'XX', len(galign.r), len(galign.g), len(galign.covs)
     alignments.insert(0, galign)
     scores.insert(0, score)
 
@@ -355,7 +350,6 @@ def find_highest_abund_kmer(ct, r):
 def test_1():
     ct = khmer.new_counting_hash(20, 1.1e6, 4)
     ct.consume_fasta('simple-haplo-reads.fa.keep')
-    #ct = khmer.load_counting_hash('simple-haplo-reads.dn.ct')
     aligner = khmer.ReadAligner(ct, 5, 1.0)
 
     seq = "".join("""GTCCTGGCGGTCCCCATTCA

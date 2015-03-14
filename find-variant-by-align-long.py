@@ -29,6 +29,22 @@ def main():
         for start in range(0, len(alignment), 60):
             print alignment[start:start+60]
 
+        gidx = AlignmentIndex(alignment)
+        fp = open('variants.txt', 'w')
+
+        for gi, a, b in alignment.variants():
+            kmer = alignment.g[gi:]
+            if '=' in kmer:
+                continue
+
+            kmer = kmer.replace('-', '')[:ct.ksize()]
+            if len(kmer) < ct.ksize():
+                break
+            print >>fp, gi, a, b, gidx.get_ri(gi), kmer, alignment.covs[gi]
+
+        if 0:
+            print len(seq), alignment.refseqlen()
+            gidx._sanityCheck(seq)
 
 if __name__ == '__main__':
     main()
