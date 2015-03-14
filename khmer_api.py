@@ -1,4 +1,6 @@
 from screed.screedRecord import _screed_record_dict
+import os
+from khmer.utils import write_record, write_record_pair
 
 def clean_reads(input_stream):
     for n, is_pair, read1, read2 in input_stream:
@@ -10,6 +12,21 @@ def clean_reads(input_stream):
             read2.sequence = read2.sequence.replace('N', 'A')
 
         yield n, is_pair, read1, read2
+
+
+def output_reads(input_stream, out_fp):
+    for n, is_pair, read1, read2 in input_stream:
+        if is_pair:
+            write_record_pair(read1, read2, out_fp)
+        else:
+            write_record(read1, out_fp)
+
+
+def build_graph(input_stream, graph):
+    for n, is_pair, read1, read2 in input_stream:
+        graph.consume(read1.sequence)
+        if is_pair:
+            graph.consume(read2.sequence)
 
 
 def diginorm(input_stream, ct, coverage):
@@ -90,11 +107,6 @@ def streamtrim(input_stream, ct, normalize_coverage, trusted_coverage):
         yield n + m, is_pair, read1, read2
 
 
-
-def correct(input_stream, ct, trusted_coverage):
-    pass
-
-
 ####
 
 
@@ -134,28 +146,22 @@ if __name__ == '__main__':
     from khmer.utils import broken_paired_reader
     filename = sys.argv[1]
 
-
     graph = khmer.new_counting_hash(20, 1e7, 4)
-    input_iter = screed.open(filename)
+    out_fp = open(os.path.basename(filename) + '.abundtrim', 'w')
 
-    ## streaming error trimming via generators
+    ## khmer scripts/trim-low-abund.py -V, using generators
+    input_iter = screed.open(filename)
     input_iter = broken_paired_reader(input_iter)
     input_iter = clean_reads(input_iter)
     input_iter = streamtrim(input_iter, graph, 20, 3)
+    output_reads(input_iter, out_fp)
     
-    for n, is_pair, read1, read2 in input_iter:
-        if n % 1000 == 0:
-            print n
-    print n, 'sequences total'
-
-    ## diginorm via generators
     graph = khmer.new_counting_hash(20, 1e7, 4)
+    out_fp = open(os.path.basename(filename) + '.keep', 'w')
+
+    ## khmer scripts/normalize-by-median.py, using generators
     input_iter = screed.open(filename)
     input_iter = broken_paired_reader(input_iter)
     input_iter = clean_reads(input_iter)
     input_iter = diginorm(input_iter, graph, 20)
-    
-    for n, is_pair, read1, read2 in input_iter:
-        if n % 1000 == 0:
-            print n
-    print n, 'sequences total'
+    output_reads(input_iter, out_fp)
