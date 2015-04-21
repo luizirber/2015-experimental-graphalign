@@ -1,6 +1,8 @@
 from screed.screedRecord import _screed_record_dict
 import os
 from khmer.utils import write_record, write_record_pair
+import khmer, sys, screed, khmer.utils
+from khmer.utils import broken_paired_reader
 
 def clean_reads(input_stream):
     for n, is_pair, read1, read2 in input_stream:
@@ -141,9 +143,35 @@ def _trim_record(read, ct, cutoff):
     return new_read
 
 
+def broken_paired_to_single(input_stream):
+    for _, is_pair, read1, read2 in input_stream:
+        yield read1
+        if is_pair:
+            yield read2
+
+###
+
+
+def test_diginorm():
+    filename = 'test_files/simple-metagenome-reads.fa'
+
+    graph = khmer.new_counting_hash(20, 1e7, 4)
+    out_fp = open(os.path.basename(filename) + '.keep', 'w')
+
+    ## khmer scripts/normalize-by-median.py, using generators
+    input_iter = screed.open(filename)
+    input_iter = broken_paired_reader(input_iter)
+    input_iter = clean_reads(input_iter)
+    input_iter = diginorm(input_iter, graph, 20)
+
+    script_result = screed.open('test_files/'
+                                'simple-metagenome-reads.fa.keep.k20.C20')
+    for read_a, read_b in zip(broken_paired_to_single(input_iter), script_result):
+        print read_a.name
+        assert read_a == read_b, (read_a, read_b)
+
+
 if __name__ == '__main__':
-    import khmer, sys, screed, khmer.utils
-    from khmer.utils import broken_paired_reader
     filename = sys.argv[1]
 
     graph = khmer.new_counting_hash(20, 1e7, 4)
@@ -153,7 +181,7 @@ if __name__ == '__main__':
     input_iter = screed.open(filename)
     input_iter = broken_paired_reader(input_iter)
     input_iter = clean_reads(input_iter)
-    input_iter = streamtrim(input_iter, graph, 20, 3)
+    input_iter = streamtrim(input_iter, graph, 20, 2)
     output_reads(input_iter, out_fp)
     
     graph = khmer.new_counting_hash(20, 1e7, 4)
