@@ -10,10 +10,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('table')
     parser.add_argument('ref')
+    parser.add_argument('--trusted', type=int, default=5)
     args = parser.parse_args()
 
     ct = khmer.load_counting_hash(args.table)
-    aligner = khmer.ReadAligner(ct, 5, 1.0)
+    aligner = khmer.ReadAligner(ct, args.trusted, 1.0)
 
     for record in screed.open(args.ref):
         seq = record.sequence
@@ -33,14 +34,17 @@ def main():
         fp = open('variants.txt', 'w')
 
         for gi, a, b in alignment.variants():
-            kmer = alignment.g[gi:]
-            if '=' in kmer:
-                continue
+            kmer = ''
+            pos = gi
+            while len(kmer) < ct.ksize() and pos < len(alignment.g):
+                ch = alignment.g[pos]
+                pos += 1
+                if ch in '=-':
+                    continue
+                kmer += ch
 
-            kmer = kmer.replace('-', '')[:ct.ksize()]
-            if len(kmer) < ct.ksize():
-                break
-            print >>fp, gi, a, b, gidx.get_ri(gi), kmer, alignment.covs[gi]
+            if alignment.covs[gi]:
+                print >>fp, gi, a, b, gidx.get_ri(gi), kmer, alignment.covs[gi]
 
         if 0:
             print len(seq), alignment.refseqlen()
