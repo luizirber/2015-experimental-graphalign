@@ -21,7 +21,6 @@ ecoli-subset.100k.cor.fq.gz: ecoli-subset.100k.fq
 
 ecoli-subset.100k.quake.fq: ecoli-subset.100k.cor.fq.gz ecoli-subset.100k.fq
 	extract-original-reads-from-quake-cor.py ecoli-subset.100k.fq ecoli-subset.100k.cor.fq.gz ecoli-subset.100k.quake.fq
-	
 
 original.sam: ecoli-subset.fq
 	cat ecoli-subset.fq | bowtie2 -p 4 -x ecoli -U - -S original.sam
