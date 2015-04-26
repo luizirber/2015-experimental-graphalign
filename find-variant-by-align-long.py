@@ -11,6 +11,8 @@ def main():
     parser.add_argument('table')
     parser.add_argument('ref')
     parser.add_argument('--trusted', type=int, default=5)
+    parser.add_argument('--variants-out', type=str, default='variants.txt',
+                        dest='variants_out')
     args = parser.parse_args()
 
     ct = khmer.load_counting_hash(args.table)
@@ -28,10 +30,11 @@ def main():
         m, n = alignment.compare()
         print record.name, m, n, n - m, "%.3f%%" % (float(m)/ n * 100)
         for start in range(0, len(alignment), 60):
+            print start
             print alignment[start:start+60]
 
         gidx = AlignmentIndex(alignment)
-        fp = open('variants.txt', 'w')
+        fp = open(args.variants_out, 'w')
 
         for gi, a, b in alignment.variants():
             kmer = ''
