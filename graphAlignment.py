@@ -292,6 +292,9 @@ def align_long(ct, aligner, sta):
         end_seed = seeds[i + 1] - 1
         region_coords.append((seed_pos, end_seed + K))
 
+    if not region_coords:
+        region_coords.append((seeds[0], seeds[0] + K))
+
     # account for situation where last region is too small to align.
     if len(sta) - seeds[-1] > K:
         region_coords.append((seeds[-1], len(sta)))
