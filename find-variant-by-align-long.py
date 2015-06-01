@@ -18,6 +18,7 @@ def main():
     ct = khmer.load_counting_hash(args.table)
     aligner = khmer.ReadAligner(ct, args.trusted, 1.0)
 
+    fp = open(args.variants_out, 'w')
     for record in screed.open(args.ref):
         seq = record.sequence
         seq = seq.replace('N', 'A')
@@ -34,7 +35,6 @@ def main():
             print alignment[start:start+60]
 
         gidx = AlignmentIndex(alignment)
-        fp = open(args.variants_out, 'w')
 
         for gi, a, b in alignment.variants():
             kmer = ''
